@@ -3,6 +3,7 @@ import shutil
 import logging
 import asyncio
 import time
+import re
 from collections import defaultdict
 
 from telegram import Update
@@ -13,11 +14,13 @@ from downloader import search_youtube, download_audio_file
 logging.basicConfig(level=logging.INFO)
 
 TMP_BASE = "tmp"
-INACTIVITY_TIMEOUT = 600  # 10 minutes
+INACTIVITY_TIMEOUT = 600  # 10 минут
 
 user_queues = defaultdict(asyncio.Queue)
 user_tasks = {}
 last_active = {}
+
+YOUTUBE_URL_RE = re.compile(r'(https?://)?(www\.)?(youtube\.com|youtu\.be)/')
 
 def get_user_tmp_path(user_id):
     return os.path.join(TMP_BASE, str(user_id))
@@ -33,25 +36,21 @@ def clear_tmp_for_user(user_id):
         shutil.rmtree(user_path)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hi! Send me a track name and I'll find and send it to you 🎶")
+    await update.message.reply_text("Hi! Send me a track name or YouTube link and I'll find and send it to you 🎶")
 
 async def handle_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     message_text = update.message.text.strip()
 
-    # Сохраняем активность
     last_active[user_id] = time.time()
 
-    # Создаём очередь пользователя и добавляем туда запрос
     queue = user_queues[user_id]
     await queue.put((message_text, update))
 
-    # Если воркер уже работает — не запускаем второй
     if user_id in user_tasks:
         await update.message.reply_text("⏳ Please wait for the current track to finish.")
         return
 
-    # Запускаем обработчик очереди
     user_tasks[user_id] = asyncio.create_task(process_user_queue(user_id, context))
 
 async def process_user_queue(user_id: int, context: ContextTypes.DEFAULT_TYPE):
@@ -63,23 +62,31 @@ async def process_user_queue(user_id: int, context: ContextTypes.DEFAULT_TYPE):
 
         if not is_first:
             await update.message.reply_text("▶️ Now searching for the next track...")
+
         try:
             await update.message.reply_text("🔎 Searching and downloading the track...")
-            results = search_youtube(query)
-            if not results:
-                await update.message.reply_text("No results found 😢")
-                continue
 
-            url = results[0]['url']
-            title = results[0]['title']
             user_tmp = ensure_tmp_path(user_id)
-            file_path, actual_title = download_audio_file(url, user_tmp)
 
+            # Определяем — это ссылка или просто текст
+            if YOUTUBE_URL_RE.search(query):
+                url = query
+                title = None  # Получим позже
+            else:
+                results = search_youtube(query)
+                if not results:
+                    await update.message.reply_text("No results found 😢")
+                    continue
+                url = results[0]['url']
+                title = results[0]['title']
+
+            file_path, actual_title = download_audio_file(url, user_tmp)
             await update.message.reply_audio(audio=open(file_path, 'rb'), title=actual_title or title)
+
         except Exception as e:
             logging.error(f"Error for user {user_id}: {e}")
+            await update.message.reply_text("⚠️ Failed to process this track.")
 
-    # Очистка после завершения очереди
     user_tasks.pop(user_id, None)
 
 async def cleanup_loop():

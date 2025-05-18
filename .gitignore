@@ -1,7 +1,6 @@
 .env
 __pycache__
 venv/
-.idea/
-.DS_Store
-Thumbs.db
-bot.log
+.idea
+cache
+tmp

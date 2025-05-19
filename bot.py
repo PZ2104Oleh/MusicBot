@@ -10,14 +10,13 @@ from collections import defaultdict
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 from config import BOT_TOKEN
-from downloader import search_youtube, download_audio_file
+from downloader import search_youtube, download_audio_file, extract_playlist  # обновлённый импорт
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(levelname)s:%(name)s:%(message)s",
-    stream=sys.stdout  # <-- отправляем в stdout
+    stream=sys.stdout
 )
-
 
 TMP_BASE = "tmp"
 INACTIVITY_TIMEOUT = 600  # 10 минут
@@ -50,13 +49,22 @@ async def handle_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     last_active[user_id] = time.time()
     queue = user_queues[user_id]
-    await queue.put((message_text, update))
+
+    # Обработка плейлиста
+    if "list=" in message_text and YOUTUBE_URL_RE.match(message_text):
+        playlist = extract_playlist(message_text)
+        if not playlist:
+            await update.message.reply_text("No tracks found in playlist 😢")
+            return
+        for item in playlist:
+            await queue.put((item['url'], update))
+    else:
+        await queue.put((message_text, update))
 
     if user_id in user_tasks:
         await update.message.reply_text("⏳ Please wait for the current track to finish.")
         return
 
-    # Добавить задачу в словарь сразу
     task = asyncio.create_task(process_user_queue(user_id, context))
     user_tasks[user_id] = task
 
@@ -66,7 +74,6 @@ async def process_user_queue(user_id: int, context: ContextTypes.DEFAULT_TYPE):
     while not queue.empty():
         query, update = await queue.get()
 
-        # Перед началом каждой итерации — уведомляем, если очередь не пуста
         if not queue.empty():
             try:
                 await update.message.reply_text("▶️ Now searching for the next track...")
@@ -94,9 +101,8 @@ async def process_user_queue(user_id: int, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logging.error(f"Error for user {user_id}: {e}")
 
-        # После отправки трека — проверка очереди
         if not queue.empty():
-            next_query, next_update = queue._queue[0]  # Посмотреть следующий запрос (не извлекая)
+            next_query, next_update = queue._queue[0]
             try:
                 await next_update.message.reply_text("▶️ Now searching for the next track...")
             except Exception as e:

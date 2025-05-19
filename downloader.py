@@ -3,7 +3,6 @@ import yt_dlp
 import hashlib
 import json
 
-# Путь к cookies-файлу
 COOKIES_FILE = 'cookies.txt'
 
 def hash_url(url):
@@ -15,7 +14,7 @@ def search_youtube(query, limit=1):
         'noplaylist': True,
         'default_search': f'ytsearch{limit}',
         'quiet': True,
-        'cookiefile': COOKIES_FILE,  # Добавлено
+        'cookiefile': COOKIES_FILE,
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -24,6 +23,21 @@ def search_youtube(query, limit=1):
         return [{
             'title': e['title'],
             'url': e['webpage_url']
+        } for e in entries]
+
+def extract_playlist(playlist_url):
+    ydl_opts = {
+        'quiet': True,
+        'cookiefile': COOKIES_FILE,
+        'extract_flat': True,
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(playlist_url, download=False)
+        entries = info.get('entries', [])
+        return [{
+            'title': e.get('title'),
+            'url': e.get('url') if e.get('url', '').startswith('http') else f"https://www.youtube.com/watch?v={e['id']}"
         } for e in entries]
 
 def download_audio_file(url, output_dir):
@@ -40,7 +54,7 @@ def download_audio_file(url, output_dir):
         'format': 'bestaudio/best',
         'outtmpl': os.path.join(output_dir, f"{file_hash}.%(ext)s"),
         'quiet': True,
-        'cookiefile': COOKIES_FILE,  # Добавлено
+        'cookiefile': COOKIES_FILE,
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',

@@ -5,8 +5,9 @@ import json
 
 # Создать cookies.txt из переменной окружения, если его ещё нет
 if not os.path.exists("cookies.txt") and os.getenv("YT_COOKIES"):
+    raw = os.getenv("YT_COOKIES").replace('\\n', '\n')
     with open("cookies.txt", "w", encoding="utf-8") as f:
-        f.write(os.getenv("YT_COOKIES"))
+        f.write(raw)
 
 def hash_url(url):
     return hashlib.md5(url.encode()).hexdigest()

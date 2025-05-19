@@ -3,6 +3,11 @@ import yt_dlp
 import hashlib
 import json
 
+# Создать cookies.txt из переменной окружения, если его ещё нет
+if not os.path.exists("cookies.txt") and os.getenv("YT_COOKIES"):
+    with open("cookies.txt", "w", encoding="utf-8") as f:
+        f.write(os.getenv("YT_COOKIES"))
+
 def hash_url(url):
     return hashlib.md5(url.encode()).hexdigest()
 

@@ -1,4 +1,5 @@
 import os
+import sys
 import shutil
 import logging
 import asyncio
@@ -13,9 +14,10 @@ from downloader import search_youtube, download_audio_file
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
+    format="%(levelname)s:%(name)s:%(message)s",
+    stream=sys.stdout  # <-- отправляем в stdout
 )
+
 
 TMP_BASE = "tmp"
 INACTIVITY_TIMEOUT = 600  # 10 минут

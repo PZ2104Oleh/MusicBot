@@ -11,7 +11,11 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 from config import BOT_TOKEN
 from downloader import search_youtube, download_audio_file
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
 
 TMP_BASE = "tmp"
 INACTIVITY_TIMEOUT = 600  # 10 минут

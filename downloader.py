@@ -12,6 +12,7 @@ def search_youtube(query, limit=1):
         'noplaylist': True,
         'default_search': f'ytsearch{limit}',
         'quiet': True,
+        'cookiefile': 'cookies.txt',
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -36,6 +37,7 @@ def download_audio_file(url, output_dir):
         'format': 'bestaudio/best',
         'outtmpl': os.path.join(output_dir, f"{file_hash}.%(ext)s"),
         'quiet': True,
+        'cookiefile': 'cookies.txt',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',

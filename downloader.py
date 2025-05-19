@@ -9,7 +9,8 @@ def write_temp_cookies():
     raw_cookies = os.getenv("YT_COOKIES", "")
     if not raw_cookies:
         raise Exception("YT_COOKIES env var is missing")
-    fixed_cookies = raw_cookies.replace("\\n", "\n").replace("\\t", "\t")
+    # Преобразуем экранированные последовательности в реальные символы
+    fixed_cookies = raw_cookies.encode('utf-8').decode('unicode_escape')
     temp = tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".txt")
     temp.write(fixed_cookies)
     temp.close()

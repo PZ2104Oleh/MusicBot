@@ -1,58 +1,41 @@
 import os
-import yt_dlp
-import hashlib
-import json
+import tempfile
+from yt_dlp import YoutubeDL
+from yt_dlp.utils import DownloadError
 
-# Создать cookies.txt из переменной окружения, если его ещё нет
-if not os.path.exists("cookies.txt") and os.getenv("YT_COOKIES"):
-    raw = os.getenv("YT_COOKIES").replace('\\n', '\n')
-    with open("cookies.txt", "w", encoding="utf-8") as f:
-        f.write(raw)
+def download_audio(url):
+    # Получаем cookies из переменной окружения
+    raw_cookies = os.getenv("YT_COOKIES", "")
+    if not raw_cookies:
+        raise Exception("No cookies found in environment variable 'YT_COOKIES'")
 
-def hash_url(url):
-    return hashlib.md5(url.encode()).hexdigest()
+    # Заменяем \n на реальные переносы строк
+    fixed_cookies = raw_cookies.replace("\\n", "\n")
 
-def search_youtube(query, limit=1):
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'noplaylist': True,
-        'default_search': f'ytsearch{limit}',
-        'quiet': True,
-        'cookiefile': 'cookies.txt',
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(query, download=False)
-        entries = info.get('entries', [])
-        return [{
-            'title': e['title'],
-            'url': e['webpage_url']
-        } for e in entries]
-
-def download_audio_file(url, output_dir):
-    file_hash = hash_url(url)
-    mp3_path = os.path.join(output_dir, f"{file_hash}.mp3")
-    meta_path = os.path.join(output_dir, f"{file_hash}.json")
-
-    if os.path.exists(mp3_path) and os.path.exists(meta_path):
-        with open(meta_path, 'r') as f:
-            meta = json.load(f)
-        return mp3_path, meta.get('title')
+    # Создаем временный файл cookies
+    with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".txt") as cookie_file:
+        cookie_file.write(fixed_cookies)
+        cookie_file_path = cookie_file.name
 
     ydl_opts = {
         'format': 'bestaudio/best',
-        'outtmpl': os.path.join(output_dir, f"{file_hash}.%(ext)s"),
-        'quiet': True,
-        'cookiefile': 'cookies.txt',
+        'outtmpl': 'downloads/%(title)s.%(ext)s',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
+        'cookiefile': cookie_file_path,
+        'quiet': True,
     }
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        with open(meta_path, 'w') as f:
-            json.dump({'title': info['title']}, f)
-        return mp3_path, info['title']
+    try:
+        with YoutubeDL(ydl_opts) as ydl:
+            info_dict = ydl.extract_info(url, download=True)
+            return ydl.prepare_filename(info_dict).replace(".webm", ".mp3").replace(".m4a", ".mp3")
+    except DownloadError as e:
+        raise Exception(f"Download error: {e}")
+    finally:
+        # Удаляем временный файл cookie
+        if os.path.exists(cookie_file_path):
+            os.remove(cookie_file_path)

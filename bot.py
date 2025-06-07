@@ -10,7 +10,7 @@ from collections import defaultdict
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 from config import BOT_TOKEN
-from downloader import search_youtube, download_audio_file, extract_playlist  # обновлённый импорт
+from downloader import search_youtube, download_audio_file, extract_playlist
 
 logging.basicConfig(
     level=logging.INFO,
@@ -19,7 +19,7 @@ logging.basicConfig(
 )
 
 TMP_BASE = "tmp"
-INACTIVITY_TIMEOUT = 600  # 10 минут
+INACTIVITY_TIMEOUT = 600
 
 user_queues = defaultdict(asyncio.Queue)
 user_tasks = {}
